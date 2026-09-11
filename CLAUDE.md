@@ -143,6 +143,51 @@ Los agujeros solo están conectados entre sí cuando pertenecen al mismo grupo e
 
 ---
 
+### Alimentación del motor (confirmado en pruebas, 2026-09-10)
+
+El ULN2003 y el motor NO deben alimentarse desde el pin 5V del ESP32.
+
+Al hacerlo, el consumo del 28BYJ-48 (del orden de 250-400 mA, con picos
+mayores) provoca caída de tensión, salta el detector de brownout y el ESP32
+entra en bucle de reinicio. Síntoma observado: el monitor serie repite
+indefinidamente la misma cabecera de arranque ilegible.
+
+Alimentación correcta:
+
+```text
+Fuente 5V externa (>=1 A) -> borne de alimentación del ULN2003
+GND de esa fuente         -> mini protoboard de masa (GND común con el ESP32)
+5V del ESP32              -> SIN CONECTAR al ULN2003
+```
+
+El GND común es obligatorio.
+
+---
+
+## Fase actual de la prueba (2026-09-11)
+
+La validación está partida en dos porque el motor ya arranca pero el receptor
+IR no daba ninguna señal.
+
+`src/main.cpp` está ahora en **modo barrera aislada**:
+
+- `#define ENABLE_MOTOR 0` deja todo el código del motor fuera de compilación.
+- Cada segundo se emite una línea `[diag]` con la lectura cruda del pin y un
+  contador de transiciones. **Si ese contador no sube al tapar y destapar el
+  haz, el problema es de hardware**, no de software.
+- `#define IR_DIAG_MODE 2` cambia a lectura analógica cruda (0..4095) para ver
+  si el fototransistor responde aunque no llegue a cruzar el umbral digital.
+  Ese modo desactiva el pull-up interno, así que exige un pull-up EXTERNO de
+  unos 10 kΩ entre GPIO15 y 3V3.
+
+Nota sobre el pull-up: el interno del ESP32 es débil (~45 kΩ). Para un
+fototransistor conviene un pull-up externo de 10 kΩ, que da flancos más
+limpios y menos sensibilidad a la luz ambiente.
+
+Cuando la barrera esté certificada, volver a poner `ENABLE_MOTOR` a 1.
+
+---
+
 ## Primera implementación solicitada
 
 Crear `src/main.cpp`.
